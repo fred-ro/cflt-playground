@@ -1,0 +1,188 @@
+GET http://localhost:8082/v3/clusters
+
+> {% client.global.set('cluster_id', response.body.data[0].cluster_id); %}
+
+###
+GET http://localhost:8082/v3/clusters/{{cluster_id}}/topics
+
+###
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics
+Content-Type: application/json
+
+{
+  "topic_name": "topic-compacted",
+  "partitions_count": 3,
+  "replication_factor": 1,
+  "configs": [
+    {
+      "name": "cleanup.policy",
+      "value": "compact"
+    }
+  ]
+}
+
+### First request => registering schema
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "type": "AVRO",
+    "schema": "{\"type\":\"string\"}",
+    "data": "And this is my value"
+  }
+}
+
+### schema_id
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "schema_id": 1,
+    "subject": "topic-compacted-value",
+    "data": "And this is my second value"
+  }
+}
+
+### latest schema
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "subject": "topic-compacted-value",
+    "data": "And this is my third value"
+  }
+}
+
+###
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics
+Content-Type: application/json
+
+{
+  "topic_name": "topic2-compacted",
+  "partitions_count": 3,
+  "replication_factor": 1,
+  "configs": [
+    {
+      "name": "cleanup.policy",
+      "value": "compact"
+    }
+  ]
+}
+### Change schema
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic2-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "type": "AVRO",
+    "subject": "topic-compacted2-value",
+    "schema": "{\"type\": \"record\",\"name\": \"Customer\",\"namespace\": \"io.fred.example\",\"fields\": [{ \"name\": \"id\", \"type\": \"string\" },{ \"name\": \"name\", \"type\": \"string\" }]}",
+    "data": { "id": "myId", "name": "my name" }
+  }
+}
+
+### Change schema subject_name_stategy = [RECORD_NAME, TOPIC_NAME, TOPIC_RECORD_NAME]
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic2-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "type": "AVRO",
+    "subject_name_strategy": "TOPIC_NAME",
+    "schema": "{\"type\": \"record\",\"name\": \"Customer\",\"namespace\": \"io.fred.example\",\"fields\": [{ \"name\": \"id\", \"type\": \"string\" },{ \"name\": \"name\", \"type\": \"string\" }]}",
+    "data": { "id": "myId", "name": "my name" }
+  }
+}
+
+### Latest schema
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic2-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "data": { "id": "another id", "name": "another name" }
+  }
+}
+
+### Multiple messages at once
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic2-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "data": { "id": "myId", "name": "my name" }
+  }
+}
+{
+  "key": {
+    "data": "VGhpcyBpcyBhbm90aGVyIGtleQ=="
+  },
+  "value": {
+    "data": { "id": "anotherId", "name": "another name" }
+  }
+}
+
+### New topic3
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics
+Content-Type: application/json
+
+{
+  "topic_name": "topic3",
+  "partitions_count": 3,
+  "replication_factor": 1,
+  "configs": [
+    {
+      "name": "cleanup.policy",
+      "value": "compact"
+    }
+  ]
+}
+
+### New message
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic3/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "type": "AVRO",
+    "schema": "{\"type\": \"record\",\"name\": \"MyRecord\",\"namespace\": \"io.fred.example\",\"fields\": [{ \"name\": \"myField\", \"type\": \"string\" }]}",
+    "data": { "myField": "This is a string"}
+  }
+}
+
+###
+GET http://localhost:8082/v3/clusters/{{cluster_id}}/broker-configs

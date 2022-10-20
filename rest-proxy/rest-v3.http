@@ -1,3 +1,5 @@
+### Intellij HTTP Client request file
+
 GET http://localhost:8082/v3/clusters
 
 > {% client.global.set('cluster_id', response.body.data[0].cluster_id); %}
@@ -186,3 +188,70 @@ Content-Type: application/json
 
 ###
 GET http://localhost:8082/v3/clusters/{{cluster_id}}/broker-configs
+
+### Test using Json schema
+
+### First request => registering schema
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "type": "JSONSCHEMA",
+    "schema": "{ \"$schema\": \"https://json-schema.org/draft/2020-12/schema\", \"$id\": \"https://example.com/test.schema.json\", \"title\": \"Test\",\"description\": \"A test\",\"type\": \"object\",\"properties\": {\"intField\": { \"description\": \"An integer field\", \"type\": \"integer\"  }, \"stringField\": {  \"description\": \"A string field\",  \"type\": \"string\"}},\"required\": [ \"intField\", \"stringField\" ]}",
+    "data": { "intField": 12, "stringField": "My String"}
+  }
+}
+
+> {%
+client.global.set('schema_id', response.body.value.schema_id);
+client.global.set('schema_version', response.body.value.schema_version);
+%}
+
+### 2nd request using schema_id
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "schema_id": {{schema_id}},
+    "data": { "intField": 2, "stringField": "Another String"}
+  }
+}
+
+###  request using schema_version
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "schema_version": {{schema_version}},
+    "data": { "intField": 23, "stringField": "Hello world"}
+  }
+}
+
+###  request using latest schema
+POST http://localhost:8082/v3/clusters/{{cluster_id}}/topics/topic-compacted/records
+Content-Type: application/json
+
+{
+  "key": {
+    "type": "BINARY",
+    "data": "VGhpcyBpcyBteSBrZXk="
+  },
+  "value": {
+    "data": { "intField": 23, "stringField": "Hello world"}
+  }
+}

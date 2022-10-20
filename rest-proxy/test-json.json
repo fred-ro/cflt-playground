@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/test.schema.json",
+  "title": "Test",
+  "description": "A test",
+  "type": "object",
+  "properties": {
+    "intField": {
+      "description": "An integer field",
+      "type": "integer"
+    },
+    "stringField": {
+      "description": "A string field",
+      "type": "string"
+    }
+  },
+  "required": [ "intField", "stringField" ]
+}

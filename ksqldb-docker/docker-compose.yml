@@ -1,0 +1,98 @@
+---
+version: '2'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:${CP_VERSION}
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-kafka:${CP_VERSION}
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "49999:49999"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_JMX_PORT: 49999
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:${CP_VERSION}
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:9092'
+
+  ksqldb-server:
+    build:
+      dockerfile: Dockerfile
+      args:
+        KSQL_VERSION: ${KSQL_VERSION}
+    hostname: ksqldb-server
+    container_name: ksqldb-server
+    depends_on:
+      - broker
+      - schema-registry
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_SERVICE_ID: 'example_1'
+      KSQL_BOOTSTRAP_SERVERS: "broker:9092"
+      KSQL_HOST_NAME: ksqldb-server
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_CACHE_MAX_BYTES_BUFFERING: 0
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: 'true'
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_NAME: 'ksql_processing_log'
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: 'true'
+      KSQL_KSQL_LOGGING_PROCESSING_ROWS_INCLUDE: 'true'
+      KSQL_KSQL_STREAMS_ROCKSDB_CONFIG_SETTER: io.confluent.ksql.rocksdb.KsqlBoundedMemoryRocksDBConfigSetter
+      KSQL_PLUGINS_ROCKSDB_CACHE_LIMIT_STRICT: false
+      KSQL_KSQL_PLUGINS_ROCKSDB_CACHE_SIZE: 1000000
+      KSQL_PLUGINS_ROCKSDB_INDEX_FILTER_BLOCK_RATIO: 0.0
+      KSQL_KSQL_PLUGINS_ROCKSDB_NUM_BACKGROUND_THREADS: 1 # Number of cores
+      KSQL_KSQL_PLUGINS_ROCKSDB_WRITE_BUFFER_CACHE_USE: true
+      KSQL_PLUGINS_ROCKSDB_WRITE_BUFFER_SIZE: -1
+#      KSQL_CLASSPATH: /opt/ksqldb
+#      KSQL_SECURITY_PROTOCOL: 'SASL_SSL'
+#      KSQL_SASL_MECHANISM: 'PLAIN'
+#      KSQL_SASL_JAAS_CONFIG: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="myUser" password="myPWD";'
+#      KSQL_LOG4J_OPTS: "-Dlog4j.configuration=file:/opt/app/log4j/log4j.properties"
+#    volumes:
+#      - ./log4j:/opt/app/log4j
+
+  ksqldb-cli:
+    image: confluentinc/ksqldb-cli:${KSQL_VERSION}
+    container_name: ksqldb-cli
+    depends_on:
+      - broker
+      - ksqldb-server
+    entrypoint: /bin/sh
+    tty: true
+    environment:
+      KSQL_CONFIG_DIR: "/etc/ksqldb"
+    volumes:
+      - ./src:/opt/app/src
+      - ./test:/opt/app/test

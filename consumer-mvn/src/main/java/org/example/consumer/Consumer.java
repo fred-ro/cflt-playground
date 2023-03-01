@@ -17,13 +17,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-public class Consumer {
+public class Consumer<K,V> {
     private static final Logger LOGGER = LogManager.getLogger(MethodHandles.lookup().lookupClass());
 
     private static final String GROUP_ID = "Consumer";
     private static final String KAFKA_TOPIC = "topic";
     private static final Duration POLL_TIMEOUT = Duration.ofMillis(1000);
-    private static final Duration CONNECTION_LOSS_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration CONNECTION_LOSS_TIMEOUT = Duration.ofSeconds(20);
 
     @Nullable
     private MetricName connectionCountMetricName = null;
@@ -45,14 +45,14 @@ public class Consumer {
     }
 
     public static void main(String[] args) {
-        Consumer consumer = new Consumer();
+        Consumer<String, String> consumer = new Consumer<>();
         consumer.run(settings());
     }
 
     private void run(Properties settings) {
         LOGGER.info("Starting consumer");
 
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(settings)) {
+        try (KafkaConsumer<K, V> consumer = new KafkaConsumer<>(settings)) {
             // Subscribe to our topic
             LOGGER.info("Subscribing to topic " + KAFKA_TOPIC);
             consumer.subscribe(List.of(KAFKA_TOPIC));
@@ -62,7 +62,7 @@ public class Consumer {
                 try {
                     final var records = consumer.poll(POLL_TIMEOUT);
                     LOGGER.info("poll() returned {} records", records.count());
-                    checkMetrics(consumer.metrics());
+                    checkMetrics(consumer);
                     for (var record : records) {
                         LOGGER.info("Fetch record key={} value={}", record.key(), record.value());
                         // Any processing
@@ -82,19 +82,22 @@ public class Consumer {
         }
     }
 
-    private void checkMetrics(Map<MetricName, ? extends Metric> metrics) throws ConnectionTimeoutException {
+    private void checkMetrics(KafkaConsumer<K,V> consumer) throws ConnectionTimeoutException {
+        var metrics = consumer.metrics();
         Double connectionCount = getConnectionCount(metrics);
         LOGGER.debug("ConnectionCount={}", connectionCount);
         if (connectionCount == 0.0) {
             Instant now = Instant.now();
             if (lostConnectionInstant == null) {
+                LOGGER.info("checkMetrics Connection lost");
                 lostConnectionInstant = now;
             } else {
                 if (CONNECTION_LOSS_TIMEOUT.compareTo(Duration.between(lostConnectionInstant, now)) <= 0) {
                     throw new ConnectionTimeoutException("No connection for more than connection timeout");
                 }
             }
-        } else {
+        } else if (lostConnectionInstant != null) {
+            LOGGER.info("checkMetrics Connection re-established");
             lostConnectionInstant = null;
         }
     }

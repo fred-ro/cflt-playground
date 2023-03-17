@@ -1,0 +1,21 @@
+GET http://localhost:8082/topics
+
+### Create a consumer for JSON data, starting at the beginning of the topic's
+POST http://localhost:8082/consumers/my_json_consumer
+Content-Type: application/vnd.kafka.v2+json
+
+{"name": "my_consumer_instance", "format": "json", "auto.offset.reset": "latest"}
+
+### Subscribe
+POST http://localhost:8082/consumers/my_json_consumer/instances/my_consumer_instance/subscription
+Content-Type: application/vnd.kafka.v2+json
+
+{
+  "topics": [
+    "test"
+  ]
+}
+
+###
+GET http://localhost:8082/consumers/my_json_consumer/instances/my_consumer_instance/records
+Accept: application/vnd.kafka.json.v2+json
